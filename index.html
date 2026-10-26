@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>제주 귤 뽑기</title>
+  <style>
+    :root {
+      --sky1: #bfe9ff;
+      --sky2: #effaff;
+      --grass: #8fd16a;
+      --ink: #3b2a14;
+      --orange: #ff9a1f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(var(--sky1), var(--sky2) 70%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+    h1 { margin: 20px 0 4px; font-size: 1.8rem; }
+    .sub { margin: 0; opacity: .75; font-size: .95rem; }
+    .counter {
+      margin: 14px 0 0;
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 22px;
+      font-size: 1.15rem;
+      box-shadow: 0 3px 10px rgba(0,0,0,.12);
+    }
+    .counter b { color: var(--orange); font-size: 1.5rem; }
+    .stage {
+      position: relative;
+      width: min(92vw, 460px);
+      margin-top: 8px;
+    }
+    svg { width: 100%; height: auto; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    #tree { transform-origin: 50% 90%; }
+    #tree.shake { animation: shake .45s; }
+    @keyframes shake {
+      0%,100% { transform: rotate(0); }
+      20% { transform: rotate(-2.2deg); }
+      40% { transform: rotate(2deg); }
+      60% { transform: rotate(-1.2deg); }
+      80% { transform: rotate(1deg); }
+    }
+    .fruit { transition: transform .75s cubic-bezier(.5,0,.9,.5), opacity .3s .6s; }
+    .fruit.fall { opacity: 0; }
+    .fruit.hidden { opacity: 0; transition: none; }
+    .fruit.grow { transition: opacity .6s; }
+    .card {
+      position: absolute;
+      left: 50%; bottom: 14%;
+      width: 82%;
+      transform: translate(-50%, 20px) scale(.9);
+      opacity: 0;
+      pointer-events: none;
+      background: #fffdf4;
+      border: 3px solid var(--orange);
+      border-radius: 18px;
+      padding: 16px 18px;
+      text-align: center;
+      box-shadow: 0 8px 22px rgba(0,0,0,.22);
+      transition: opacity .3s, transform .3s;
+    }
+    .card.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    .card .tag { font-size: .8rem; color: var(--orange); font-weight: bold; letter-spacing: .05em; }
+    .card .jeju { font-size: 1.55rem; font-weight: bold; margin: 6px 0 4px; }
+    .card .mean { font-size: 1rem; opacity: .8; }
+    .hint { margin: 6px 0 24px; font-size: .9rem; opacity: .65; }
+  </style>
+</head>
+<body>
+  <h1>🍊 제주 귤 뽑기</h1>
+  <p class="sub">나무를 눌러 귤을 따 보세요</p>
+  <div class="counter">뽑은 귤 <b id="count">0</b>개</div>
+
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 400 420" role="button" aria-label="귤나무. 누르면 귤이 떨어집니다">
+      <!-- 잔디 -->
+      <ellipse cx="200" cy="385" rx="190" ry="30" fill="var(--grass)"/>
+      <g id="tree">
+        <!-- 줄기 -->
+        <path d="M185 395 Q190 320 180 260 L220 260 Q212 320 218 395 Z" fill="#8a5a2b"/>
+        <path d="M200 300 Q165 280 150 245" stroke="#8a5a2b" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <path d="M205 290 Q240 270 255 235" stroke="#8a5a2b" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <!-- 잎 -->
+        <circle cx="200" cy="140" r="95" fill="#3f9d4a"/>
+        <circle cx="130" cy="185" r="65" fill="#4cae55"/>
+        <circle cx="270" cy="185" r="65" fill="#4cae55"/>
+        <circle cx="165" cy="105" r="55" fill="#58ba5f"/>
+        <circle cx="240" cy="110" r="50" fill="#58ba5f"/>
+        <g id="fruits"></g>
+      </g>
+      <!-- 떨어진 귤이 쌓이는 곳 -->
+      <g id="ground"></g>
+    </svg>
+    <div class="card" id="card" aria-live="polite">
+      <div class="tag">오늘의 제주어 덕담</div>
+      <div class="jeju" id="jeju"></div>
+      <div class="mean" id="mean"></div>
+    </div>
+  </div>
+  <p class="hint">귤은 잠시 후 다시 열려요 🌿</p>
+
+  <script>
+    const phrases = [
+      ["혼저 옵서예", "어서 오세요"],
+      ["폭삭 속았수다", "수고 많으셨습니다"],
+      ["하영 드십서", "많이 드세요"],
+      ["고맙수다", "고맙습니다"],
+      ["사랑햄수다", "사랑해요"],
+      ["복 하영 받읍서", "복 많이 받으세요"],
+      ["놀멍 쉬멍 걸으멍", "놀며 쉬며 걸으며 (천천히 여유롭게)"],
+      ["맨도롱 또똣하게 지냅서", "따뜻하게 지내세요"],
+      ["몬딱 잘 될 거우다", "모두 잘 될 거예요"],
+      ["괜찮수다", "괜찮습니다"],
+      ["펜안하게 삽서", "편안하게 사세요"],
+      ["혼디 가게", "함께 가요"]
+    ];
+    const spots = [
+      [150,95],[205,70],[255,100],[110,150],[175,140],[235,145],
+      [290,155],[140,200],[200,190],[265,205],[95,195],[310,200]
+    ];
+
+    const NS = "http://www.w3.org/2000/svg";
+    const fruitsG = document.getElementById("fruits");
+    const groundG = document.getElementById("ground");
+    const tree = document.getElementById("tree");
+    const card = document.getElementById("card");
+    let count = 0, lastPhrase = -1, cardTimer;
+
+    function makeFruit(x, y, parent) {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "fruit");
+      g.innerHTML =
+        '<circle cx="' + x + '" cy="' + y + '" r="15" fill="#ff9a1f"/>' +
+        '<circle cx="' + (x-5) + '" cy="' + (y-5) + '" r="4.5" fill="#ffc36b" opacity=".8"/>' +
+        '<path d="M' + x + ' ' + (y-15) + ' q5 -7 10 -4 q-4 6 -10 4z" fill="#2f7d32"/>';
+      parent.appendChild(g);
+      return g;
+    }
+
+    const fruits = spots.map(([x, y]) => ({ x, y, el: makeFruit(x, y, fruitsG), on: true }));
+
+    function pick() {
+      const avail = fruits.filter(f => f.on);
+      if (!avail.length) return;
+      const f = avail[Math.floor(Math.random() * avail.length)];
+      f.on = false;
+
+      tree.classList.remove("shake");
+      void tree.getBoundingClientRect();
+      tree.classList.add("shake");
+
+      f.el.style.transform = "translateY(" + (378 - f.y) + "px)";
+      f.el.classList.add("fall");
+
+      // 바닥에 귤 하나 남기기
+      const gx = 60 + Math.random() * 280;
+      const rest = makeFruit(gx, 378, groundG);
+      rest.style.transform = "scale(.75)";
+      rest.style.transformOrigin = gx + "px 378px";
+      rest.style.transition = "none";
+      if (groundG.children.length > 14) groundG.removeChild(groundG.firstChild);
+
+      count++;
+      document.getElementById("count").textContent = count;
+      showCard();
+
+      // 잠시 후 다시 열매 맺기
+      setTimeout(() => {
+        f.el.classList.remove("fall");
+        f.el.classList.add("hidden");
+        f.el.style.transform = "";
+        void f.el.getBoundingClientRect();
+        f.el.classList.remove("hidden");
+        f.el.classList.add("grow");
+        f.on = true;
+      }, 2500);
+    }
+
+    function showCard() {
+      let i;
+      do { i = Math.floor(Math.random() * phrases.length); } while (i === lastPhrase);
+      lastPhrase = i;
+      document.getElementById("jeju").textContent = phrases[i][0];
+      document.getElementById("mean").textContent = "(" + phrases[i][1] + ")";
+      card.classList.add("show");
+      clearTimeout(cardTimer);
+      cardTimer = setTimeout(() => card.classList.remove("show"), 3200);
+    }
+
+    document.getElementById("svg").addEventListener("click", pick);
+  </script>
+</body>
+</html>
